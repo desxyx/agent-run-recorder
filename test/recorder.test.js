@@ -31,7 +31,25 @@ test('generic run, anchored verify, and source kind mapping', async () => {
   assert.equal((await verify(run.dir, run.root)).verdict, 'UNCHANGED_RELATIVE_TO_EXPECTED_ROOT');
   const events = (await readFile(join(run.dir, 'events.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
   assert.deepEqual(events.map(x => x.kind), ['session', 'session', 'assistant_output', 'tool_call', 'tool_result', 'error', 'unknown', 'session']);
+  assert.equal(run.manifest.status, 'COMPLETE');
+  assert.equal(run.manifest.exit_code, null);
+  assert.equal(run.manifest.coverage.recorder_observed, 'input_stream_end_only');
+  assert.equal(events.at(-1).payload.phase, 'input_end');
   assert.equal((await summary(run.dir)).unknown_event_count, 1);
+});
+test('unterminated generic input is PARTIAL without a fabricated process result', async () => {
+  const raw = '{"type":"session"}\n{"type":"assistant_output","te';
+  const run = await ingest(Readable.from([raw]), await base());
+  assert.equal(run.manifest.status, 'PARTIAL');
+  assert.equal(run.manifest.exit_code, null);
+  assert.equal(run.manifest.coverage.recorder_observed, 'input_stream_end_only');
+  assert.equal(run.manifest.coverage.not_exposed, 'producer_process_outcome_and_unreported_actions');
+  assert.equal((await verify(run.dir, run.root)).verdict, 'UNCHANGED_RELATIVE_TO_EXPECTED_ROOT');
+  const events = (await readFile(join(run.dir, 'events.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+  assert.equal(events.at(-2).kind, 'unknown');
+  assert.equal(events.at(-1).payload.status, 'PARTIAL');
+  await rewriteManifest(run.dir, async m => { m.status = 'COMPLETE'; });
+  assert.ok((await verify(run.dir)).errors.includes('GENERIC_INPUT_TRUNCATED'));
 });
 test('raw, event order, and metadata tampering fail verification', async () => {
   const run = await ingest(input({ type: 'session' }, { type: 'assistant_output' }), await base());

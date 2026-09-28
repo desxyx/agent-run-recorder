@@ -41,7 +41,9 @@ async function main(args) {
     const { opts, positional } = parse(args, ['input', 'out']);
     if (positional.length !== 1 || positional[0] !== 'generic-jsonl') throw Error('INVALID_INGEST_SYNTAX');
     const base = resolve(opts.out ?? 'runs'); await mkdir(base, { recursive: true });
-    receipt(await ingest(opts.input ? createReadStream(resolve(opts.input)) : stdin, base));
+    const result = await ingest(opts.input ? createReadStream(resolve(opts.input)) : stdin, base);
+    receipt(result);
+    if (result.manifest.status !== 'COMPLETE') process.exitCode = 2;
     return;
   }
   if (command === 'capture') {

@@ -1,14 +1,16 @@
 # Agent Run Recorder
 
-A local command-line recorder for noninteractive AI agent runs. It saves the exact stdout and stderr bytes, a common ordered JSONL event view, process outcome, and a SHA-256 receipt. Version 0.1 is a technical preview.
+A local command-line recorder for noninteractive AI agent runs. It saves the exact stdout and stderr bytes, a common ordered JSONL event view, observed stream or process boundaries, and a SHA-256 receipt. Version 0.1 is a technical preview.
 
 ## Requirements
 
 - Node.js 20 or later
-- For `capture codex`: an installed, authenticated Codex CLI with `exec --json`
+- For `capture codex`: an authenticated, directly spawnable Codex executable with `exec --json`
 - For `capture claude`: an installed, authenticated Claude Code CLI with `--print --verbose --output-format stream-json`
 
-There are no npm dependencies. On Windows, the Codex adapter finds the direct `codex.exe` in a VS Code extension installation. It does not launch the `.cmd` shim or pass the prompt through `cmd.exe`. An explicit `--exe` can select a directly spawnable binary; Windows shell scripts are rejected.
+There are no npm dependencies. On Windows, the Codex adapter searches for `codex.exe` first in `PATH`, then in `%USERPROFILE%\.vscode\extensions\openai.chatgpt-*-win32-x64\bin\windows-x86_64\codex.exe`. It does not launch a `codex.cmd` shim or pass the prompt through `cmd.exe`. A global npm install that exposes only a `.cmd` shim is not automatically supported; that layout has not been tested here. Use `--exe <path-to-codex.exe>` to select a directly spawnable binary. Windows `.cmd`, `.bat`, and `.ps1` overrides are rejected.
+
+For `capture codex`, set `--cwd` to a Git repository or another directory Codex trusts. The adapter does not pass `--skip-git-repo-check`; Codex may reject a plain untrusted directory and the recorder will save that failure as `PARTIAL`.
 
 ## Quick start
 
@@ -27,7 +29,9 @@ Each completed command prints a single-line `ROOT_SHA256=<digest>` receipt. Save
 
 ## Generic JSONL contract
 
-Each nonempty line is one UTF-8 JSON object. The `type` property can be `session`, `assistant_output`, `tool_call`, `tool_result`, or `error`. Other values and malformed lines become `unknown` events. Every source record is retained in `stdout.bin` and copied into the private event payload. The recorder adds `recorder-observed` start and terminal events; source lines carry `source-reported`, line numbers, and ordered event ordinals. The contract makes no claim about hidden or omitted producer actions.
+Each nonempty line is one newline-terminated UTF-8 JSON object. The `type` property can be `session`, `assistant_output`, `tool_call`, `tool_result`, or `error`. Other values and malformed lines become `unknown` events. Every source record is retained in `stdout.bin` and copied into the private event payload. The recorder adds `recorder-observed` start and input-end events; source lines carry `source-reported`, line numbers, and ordered event ordinals.
+
+Generic ingest observes only the input stream. It records `exit_code: null` and never claims to know the producer's process result. An empty stream or a stream ending after a newline is `COMPLETE` **as an input stream only**; an unterminated final line is `PARTIAL`. EOF does not prove the producer exited successfully or reported every action.
 
 ```jsonl
 {"type":"session","id":"example"}
