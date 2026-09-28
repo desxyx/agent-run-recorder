@@ -1,0 +1,4 @@
+{"type":"session","id":"example"}
+{"type":"assistant_output","text":"Hello"}
+{"type":"tool_call","name":"lookup","arguments":{"key":"x"}}
+{"type":"tool_result","value":"found"}

@@ -1,0 +1,11 @@
+{
+  "name": "agent-run-recorder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["bin/", "lib/", "README.md", "LICENSE", "example.jsonl"],
+  "bin": { "agent-recorder": "./bin/agent-recorder.js" },
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}
