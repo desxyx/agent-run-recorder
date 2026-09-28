@@ -1,6 +1,41 @@
 # Agent Run Recorder
 
-A local command-line recorder for noninteractive AI agent runs. It saves the exact stdout and stderr bytes, a common ordered JSONL event view, observed stream or process boundaries, and a SHA-256 receipt. Version 0.1 is a technical preview.
+**Receipts for AI agent runs.** Wrap a Codex or Claude Code run, or pipe in any JSONL event stream, and get back the exact bytes, a common event timeline, and one line you can paste anywhere:
+
+```
+ROOT_SHA256=991698f567be08cf23c23ab2d5c029bb08af715dd656fe6c2807401679cf2904
+```
+
+Keep that line in a commit message, a PR, or a deploy ticket. Later, anyone with the run directory can check whether the record still matches it. Version 0.1 is a technical preview.
+
+## Why this exists
+
+An AI agent deploys a service, edits a repo, or calls a dozen tools. A week later someone asks: *what did it actually do, and has anyone touched the record since?* Today the answer is usually a screenshot, a scrolled-away chat, or a log file anyone could have edited.
+
+Agent Run Recorder gives a better answer, and it is strict about what that answer covers.
+
+## What makes it different
+
+- **It separates observation from reporting.** Every event is labelled `source-reported` or `recorder-observed`. When the recorder only saw an input stream, it records `exit_code: null` and does not invent a process result.
+- **Visible cutoffs stay visible.** An interrupted child process or an unterminated JSONL line becomes `PARTIAL`. A recorder crash is `UNSEALED_PARTIAL` until its surviving bytes are sealed as `PARTIAL`. A clean input-stream end alone cannot prove its producer finished successfully.
+- **The timeline cannot be edited on its own.** `verify` rebuilds the event timeline from the raw bytes. Reordering or deleting events without changing the raw stream fails.
+- **It is honest about tampering.** Without your saved receipt, `verify` says only `INTERNALLY_CONSISTENT_ONLY`, because anyone rewriting every file could recompute every hash. With the receipt, it can say `UNCHANGED_RELATIVE_TO_EXPECTED_ROOT`.
+- **Summaries share metadata, not source content.** `summary` emits counts, statuses, times and hashes from a fixed allowlist. The privacy test scans the full summary output for planted secrets, and it is also checked against a deliberately leaking output to prove the test would catch a leak.
+- **You can read all of it.** There are no dependencies. The CLI and core together are about 365 lines of Node.js, small enough to inspect in one sitting.
+
+## Where it fits
+
+It works best where agents already run noninteractively. CI/CD steps that call `codex exec` or `claude -p` can record the run and put the receipt in the PR or deployment record, which gives each change an audit trail. It is also useful for evaluations and bug reports, when you need the exact output and not a paraphrase of it.
+
+## From WatchOver AI DevOps
+
+The recorder grew out of **WatchOver AI DevOps**, an in-progress human-in-the-loop workbench for making AI-assisted deployment runs traceable, reviewable and resumable. Its execution-harness work kept needing trustworthy run evidence, so that part was pulled out into a separate, general-purpose tool.
+
+## Built with H.E.L.M
+
+This project was planned, built and checked with [H.E.L.M — AI Orchestration Workbench](https://github.com/desxyx/helm-ai-orchestration-workbench). In H.E.L.M, a Council of ChatGPT, Claude and Gemini discusses and decides in the browser, a human orchestrates the handoff, local Executors implement, and independent Reviewers from a different model family check the result.
+
+That process shaped this repository's first release. One model family wrote the code and another reviewed it. The plan review raised five issues before any code existed. The implementation review then caught two more before release: the generic input path was claiming a process exit code it had never observed, and the README overstated Windows Codex support. Both were fixed and re-verified before a human approved publication. A tool that records honest evidence was itself held to that standard.
 
 ## Requirements
 
